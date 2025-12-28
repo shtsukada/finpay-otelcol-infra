@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/shtsukada/finpay-otelcol-infra.git
+    repoURL: https://github.com/shtsukada/finpay-otelcol-monitoring.git
     targetRevision: main
     path: charts/finpay-otelcol
     helm:
