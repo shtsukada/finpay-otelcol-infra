@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export INSTALL_K3S_VERSION="${k3s_version}"
+
+curl -sfL https://get.k3s.io | sh -s - server --write-kubeconfig-mode 644
+
+apt-get update -y
+apt-get install -y jq
