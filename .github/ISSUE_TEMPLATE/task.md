@@ -14,8 +14,8 @@ assignees: []
 - [ ] 
 
 ## Acceptance criteria
-- [ ] `terraform fmt -check` passes
-- [ ] `terraform init -backend=false` + `terraform validate` passes
+- [ ] 
+- [ ] 
 
 ## Notes
 <!-- メモ、リンク、設計判断など -->
