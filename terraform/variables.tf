@@ -55,5 +55,15 @@ variable "subnet_id" {
 
 variable "k3s_version" {
   type        = string
-  description = "Pinned k3s version (e.g. v1.29.8+k3s1)"
+  description = "Pinned k3s version (e.g. v1.29.6+k3s1)"
+  validation {
+    condition     = can(regex("^v\\d+\\.\\d+\\.\\d+\\+k3s\\d+$", var.k3s_version))
+    error_message = "k3s_version must look like:v1.29.6+k3s1"
+  }
+}
+
+variable "k3s_disable_traefik" {
+  type        = bool
+  description = "Disable bundled Traefik ingress controller"
+  default     = true
 }

@@ -60,6 +60,13 @@ resource "aws_instance" "k3s" {
   vpc_security_group_ids      = [aws_security_group.ec2_k3s.id]
   associate_public_ip_address = true
 
+  user_data = templatefile("${path.module}/user_data/install_k3s.sh.tftpl", {
+    k3s_version         = var.k3s_version
+    k3s_disable_traefik = var.k3s_disable_traefik
+  })
+
+  user_data_replace_on_change = true
+
   tags = {
     Name = "${var.name_prefix}-k3s"
   }
