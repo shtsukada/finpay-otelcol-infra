@@ -1,9 +1,40 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-export INSTALL_K3S_VERSION="${k3s_version}"
+exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
 
-curl -sfL https://get.k3s.io | sh -s - server --write-kubeconfig-mode 644
+echo "[user-data] start"
 
-apt-get update -y
-apt-get install -y jq
+K3S_VERSION="${k3s_version}"
+
+# Fetch public IPv4 via IMDSv2
+TOKEN="$(curl -fsS -X PUT "http://169.254.169.254/latest/api/token" \
+  -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")"
+
+PUBLIC_IP="$(curl -fsS -H "X-aws-ec2-metadata-token: $TOKEN" \
+  "http://169.254.169.254/latest/meta-data/public-ipv4")"
+
+LOCAL_IP="$(curl -fsS -H "X-aws-ec2-metadata-token: $TOKEN" \
+  "http://169.254.169.254/latest/meta-data/local-ipv4")"
+
+echo "[user-data] public_ip=$PUBLIC_IP local_ip=$LOCAL_IP version=$K3S_VERSION"
+
+export INSTALL_K3S_VERSION="$K3S_VERSION"
+
+K3S_EXTRA_ARGS="server \
+  --tls-san $PUBLIC_IP \
+  --node-external-ip $PUBLIC_IP \
+  --node-ip $LOCAL_IP \
+  --write-kubeconfig-mode 600"
+
+%{ if k3s_disable_traefik ~}
+K3S_EXTRA_ARGS="$K3S_EXTRA_ARGS --disable traefik"
+%{ endif ~}
+
+curl -sfL https://get.k3s.io | sh -s - $K3S_EXTRA_ARGS
+
+echo "[user-data] k3s installed"
+systemctl enable k3s
+systemctl restart k3s
+
+echo "[user-data] done"
