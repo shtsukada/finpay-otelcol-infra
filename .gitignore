@@ -22,15 +22,17 @@ go.work
 # ----------------------------------------
 # Terraform
 # ----------------------------------------
-*.tfstate
-*.tfstate.*
-.terraform/
-terraform.tfvars
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+*.tfvars.json
 
 # ----------------------------------------
 # Docker
 # ----------------------------------------
-.dockerignore
 .docker/
 bin/*
 Dockerfile.cross
@@ -42,9 +44,10 @@ Dockerfile.cross
 charts/
 tmpcharts/
 Chart.lock
-# kubeconfig は通常グローバル .gitignore で管理
-# ~/.kube/config
-
+kubeconfig
+**/kubeconfig
+*.kubeconfig
+.kube/
 # ----------------------------------------
 # IDE / Editor
 # ----------------------------------------
