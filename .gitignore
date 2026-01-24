@@ -29,6 +29,7 @@ crash.log
 crash.*.log
 *.tfvars
 *.tfvars.json
+terraform/envs/ci/terraform.tfvars.example
 
 # ----------------------------------------
 # Docker
