@@ -8,5 +8,5 @@ resource "aws_eip" "k3s" {
 
 resource "aws_eip_association" "k3s" {
   allocation_id = aws_eip.k3s.id
-  instance_id = aws_instance.k3s.id
+  instance_id   = aws_instance.k3s.id
 }

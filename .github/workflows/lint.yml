@@ -71,7 +71,6 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install shellcheck
-      # ubuntu-latest には入ってることもありますが、確実にするため明示インストール
         run: |
           sudo apt-get update
           sudo apt-get install -y shellcheck
@@ -80,12 +79,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          files="$(git ls-files '*.sh')"
-          if [ -z "$files" ]; then
+          mapfile -t files < <(git ls-files '*.sh')
+          if [ "${#files[@]}" -eq 0 ]; then
             echo "no shell scripts"
             exit 0
           fi
-          shellcheck -x $files
+          shellcheck -x "${files[@]}"
 
   go-test:
     name: go test/vet
@@ -171,36 +170,67 @@ jobs:
           done
 
   terraform:
-    name: terraform fmt/validate
+    name: terraform fmt/init/validate
     needs: detect
     if: ${{ needs.detect.outputs.has_tf == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "1.6.6"
+          terraform_wrapper: false
 
-      - name: terraform fmt (recursive)
+      - name: terraform fmt (check)
         shell: bash
         run: |
           set -euo pipefail
           if [ -d terraform ]; then
-            terraform fmt -check -recursive terraform
+            (cd terraform && terraform fmt -check -diff -recursive)
           else
-            terraform fmt -check -recursive .
+            terraform fmt -check -diff -recursive
           fi
 
-      - name: terraform validate (backend=false)
+      - name: terraform init (backend=false)
         shell: bash
         run: |
           set -euo pipefail
-
-          # “代表ルート”を1つだけvalidateする簡易版（必要なら後でroot分割に対応）
           if [ -d terraform ]; then
-            terraform -chdir=terraform init -backend=false
-            terraform -chdir=terraform validate
+            terraform -chdir=terraform init -backend=false -no-color
           else
-            terraform init -backend=false
-            terraform validate
+            terraform init -backend=false -no-color
+          fi
+
+      - name: prepare ci tfvars (optional)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -d terraform ]; then
+            cd terraform
+          fi
+
+          if [ -f envs/ci/terraform.tfvars ]; then
+            cp envs/ci/terraform.tfvars ci.auto.tfvars
+            echo "using envs/ci/terraform.tfvars -> ci.auto.tfvars"
+          elif [ -f envs/ci/terraform.tfvars.example ]; then
+            cp envs/ci/terraform.tfvars.example ci.auto.tfvars
+            echo "using envs/ci/terraform.tfvars.example -> ci.auto.tfvars"
+          elif [ -f terraform.tfvars.example ]; then
+            cp terraform.tfvars.example ci.auto.tfvars
+            echo "using terraform.tfvars.example -> ci.auto.tfvars"
+          else
+            echo "no ci tfvars found; skip"
+          fi
+
+
+      - name: terraform validate
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -d terraform ]; then
+            terraform -chdir=terraform validate -no-color
+          else
+            terraform validate -no-color
           fi
