@@ -20,19 +20,13 @@ MVPは **外部公開はせず**、操作は `kubectl port-forward` を前提に
 ```
 finpay-otelcol-infra/
 ├─ terraform/
-│  ├─ versions.tf
-│  ├─ provider.tf
-│  ├─ variables.tf
-│  ├─ main.tf
-│  ├─ outputs.tf
-│  ├─ envs/dev/terraform.tfvars*   # ローカル専用（gitignore）
-│  └─ user_data/install_k3s.sh.tftpl
+│  ├─ *.tf                            # EC2/EIPなどIaC本体(ec2.tf, eip.tf, ...)
+│  ├─ envs/dev/terraform.tfvars*      # ローカル専用（gitignore）
+│  └─ user_data/install_k3s.sh.tftpl  # k3s導入スクリプト(template)
 ├─ argocd/
-│  ├─ bootstrap/
-│  │  ├─ kustomization.yaml
-│  │  └─ root-app.yaml             # app-of-apps の root
-│  └─ apps/
-│     └─ monitoring.yaml           # child app（監視スタック）
+│  ├─ bootstrap/ # Argo CD 本体導入
+│  ├─ root-app/  # finpay-root(app-of-apps)
+│  └─ apps/      # child apps(monitoring)
 └─ hack/
    └─ kubeconfig.sh                # kubeconfig 取得（ssh経由）
 ```
@@ -92,108 +86,6 @@ terraform apply -var-file=envs/dev/terraform.tfvars
 terraform output
 terraform output -raw instance_public_ip
 ```
-
----
-
-## kubeconfig の取得
-
-`hack/kubeconfig.sh` を使って、EC2から kubeconfig を取得しローカルで利用します。
-
-```bash
-./hack/kubeconfig.sh <EC2_PUBLIC_IP>
-export KUBECONFIG=$(pwd)/kubeconfig
-kubectl get nodes
-```
-
-期待値：
-
-* node が `Ready`
-* `kubectl get ns` が成功
-
-> うまくいかない場合は、EC2上で `sudo k3s kubectl get nodes` が通るかを先に確認してください。
-
----
-
-## Argo CD: bootstrap（app-of-apps）
-
-### 1) Argo CD をインストール
-
-```bash
-kubectl create ns argocd || true
-kubectl apply -k argocd/bootstrap
-```
-
-> `argocd/bootstrap/kustomization.yaml` が root-app を含む想定です。
-
-### 2) root app を作成（app-of-apps）
-
-```bash
-kubectl apply -f argocd/bootstrap/root-app.yaml
-```
-
-### 3) 状態確認
-
-```bash
-kubectl -n argocd get pods
-kubectl -n argocd get applications
-```
-
-期待値：
-
-* argocd server / repo-server / application-controller などが Running
-* `Application` が作成されている
-
----
-
-## child app: monitoring の同期
-
-`argocd/apps/monitoring.yaml` が `finpay-otelcol-monitoring` を参照します。
-
-### 差し替えポイント（最初に必ず）
-
-`monitoring.yaml` 内の以下は自分の環境に合わせます：
-
-* repoURL: `https://github.com/shtsukada/finpay-otelcol-monitoring.git`
-* targetRevision: `main` もしくは `v0.1.0`（pinするならタグ）
-* path: `charts/finpay-otelcol`
-
----
-
-## Argo CD UI へのアクセス（port-forward）
-
-### 1) port-forward
-
-```bash
-kubectl -n argocd port-forward svc/argocd-server 8080:443
-```
-
-ブラウザで：
-
-* `https://localhost:8080`
-
-### 2) 初期 admin パスワード取得
-
-```bash
-kubectl -n argocd get secret argocd-initial-admin-secret \
-  -o jsonpath="{.data.password}" | base64 -d; echo
-```
-
-ユーザー名：
-
-* `admin`
-
----
-
-## Monitoring へのアクセス（port-forward）
-
-monitoring が同期されてから実施します（namespace は `monitoring` を想定）。
-
-```bash
-kubectl -n monitoring port-forward svc/grafana 3000:3000
-kubectl -n monitoring port-forward svc/prometheus 9090:9090
-kubectl -n monitoring port-forward svc/tempo 3200:3200
-```
-
 ---
 
 ## 破棄（destroy）
@@ -205,24 +97,30 @@ terraform destroy -var-file=envs/dev/terraform.tfvars
 
 ---
 
-## Troubleshooting
+## Quickstart
+```bash
+# apply -> kubeconfig -> argocd -> root -> monitoring
 
-### k3s が起動しない
+./hack/kubeconfig.sh <EC2_PUBLIC_IP>
+export KUBECONFIG=4(pwd)/kubeconfig
+kubectl get nodes
 
-* EC2上で `sudo systemctl status k3s` を確認
-* user_data のログ（`/var/log/cloud-init-output.log`）を確認
-* version pin が正しいか（`INSTALL_K3S_VERSION`）確認
+kubectl apply -k argocd/bootstrap
+kubectl -n argocd rollout status deploy/argocd-server
+kubectl wait --for=condition=Established crd/application.argoproj.io
 
-### kubectl が繋がらない
+kubectl apply -k argocd/root-app
+kubectl -n argocd get applications
+```
+期待値:
+* `finpay-root` が `Synced/Healthy`
+* `finpay-monitoring` が `Synced/Healthy`
+> UIアクセス/初期PW/再現チェック/Troubleshootingはdocsを参照。
 
-* `hack/kubeconfig.sh` が取得した kubeconfig の `server:` が `<EC2_PUBLIC_IP>` になっているか
-* SG が SSH だけでなく、必要なら 6443 を許可しているか（MVPは ssh 経由取得で回避可）
+---
 
-### Argo CD が同期しない
-
-* `argocd/apps/monitoring.yaml` の repoURL/path/targetRevision を確認
-* private repo の場合は credentials が必要（MVPは public を推奨）
-* `kubectl -n argocd logs deploy/argocd-repo-server` を確認
+## Docs
+* Argo CD access / 初期ログイン / 再現チェック / Troubleshooting: `docs/argocd-access-and-repro.md`
 
 ---
 
