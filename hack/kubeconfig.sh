@@ -36,8 +36,7 @@ SSH_OPTS=(
 
 echo "[INFO] Fetching kubeconfig from ${SSH_USER}@${EIP} using key ${KEY_PATH}"
 
-ssh "${SSH_OPTS[@]}" "${SSH_USER}@${EIP}" \
-  "sudo cat '${REMOTE_KUBECONFIG}'" \
+ssh "${SSH_OPTS[@]}" "${SSH_USER}@${EIP}" -- sudo cat "$REMOTE_KUBECONFIG" \
   | sed -E "s#^([[:space:]]*server:[[:space:]]*)https://127\.0\.0\.1:6443#\1https://${EIP}:6443#" \
   > "${KUBECONFIG_OUT}"
 
