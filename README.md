@@ -17,7 +17,6 @@ MVPは **外部公開はせず**、操作は `kubectl port-forward` を前提に
 
 ## リポジトリ構成
 
-```
 finpay-otelcol-infra/
 ├─ terraform/
 │  ├─ *.tf                            # EC2/EIPなどIaC本体(ec2.tf, eip.tf, ...)
@@ -29,7 +28,6 @@ finpay-otelcol-infra/
 │  └─ apps/      # child apps(monitoring)
 └─ hack/
    └─ kubeconfig.sh                # kubeconfig 取得（ssh経由）
-```
 
 > `terraform/envs/dev/terraform.tfvars` は **gitignore** 前提（秘密情報や環境差分をここに置くため）。
 
@@ -86,6 +84,7 @@ terraform apply -var-file=envs/dev/terraform.tfvars
 terraform output
 terraform output -raw instance_public_ip
 ```
+
 ---
 
 ## 破棄（destroy）
@@ -98,6 +97,7 @@ terraform destroy -var-file=envs/dev/terraform.tfvars
 ---
 
 ## Quickstart
+
 ```bash
 # apply -> kubeconfig -> argocd -> root -> monitoring
 
@@ -112,14 +112,18 @@ kubectl wait --for=condition=Established crd/application.argoproj.io
 kubectl apply -k argocd/root-app
 kubectl -n argocd get applications
 ```
+
 期待値:
+
 * `finpay-root` が `Synced/Healthy`
 * `finpay-monitoring` が `Synced/Healthy`
+
 > UIアクセス/初期PW/再現チェック/Troubleshootingはdocsを参照。
 
 ---
 
 ## Docs
+
 * Argo CD access / 初期ログイン / 再現チェック / Troubleshooting: `docs/argocd-access-and-repro.md`
 
 ---
